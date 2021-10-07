@@ -10,20 +10,10 @@ import numpy as np, random, copy, operator, pandas as pd, matplotlib.pyplot as p
 
 
 
-"""-----------------------------Parameters---------------------------------"""
-
-
-
-
-
-
-
-
-
 """"------------#1 Initial population generated randomly-----------------"""
 class City:
     """
-    Class city each city has coordinate (x,y)
+    Class City each city has coordinate (x,y)
     """
     def __init__(self, x, y):
         self.x = x
@@ -35,6 +25,11 @@ class City:
         distance = np.sqrt((xDis ** 2) + (yDis ** 2))
         return distance
     
+    def equal(self, city):
+        if (self.x==city.x and self.y==city.y):
+            return True
+        return False
+    
     def getX(self):
         return self.x
     
@@ -43,16 +38,6 @@ class City:
         
     def __repr__(self):
         return "(" + str(self.x) + "," + str(self.y) + ")"
-    
-def isEqual(City1,City2):
-    """
-    Check if two cities are equal
-    input : Objects City
-    output : Boolean 
-    """
-    if (City1.getX()==City2.getX() and City1.getY()==City2.getY()):
-        return True
-    return False
 
 
 def createCityList(numberOfCities):
@@ -104,6 +89,7 @@ def computeDistanceRoute(route):
     distance_tot = 0
     for i in range(len(route)-1):
         distance_tot = distance_tot + route[i].distance(route[i+1])
+
     return distance_tot
 
 
@@ -142,25 +128,25 @@ def selectionBestRoutes(sorted_pop, sizeSelected):
 """-----------------------------#4 Crossover------------------------------ """
 def crossover(route1, route2, locus):
     """
-    Single crossover at the half 1234 and 2412 give 1243 
+    Single crossover at the locus example locus=half: 1234 and 2412 give 1243 
     input : two routes (list of City) 
     output : retrun a route which results from the crossover
     """
     new_route=[]
-    for i in range(0, locus):                #Prend la 1er moitier de parent 1
+    for i in range(0, locus):                #Prend la 1er partie de parent 1
         new_route.append(route1[i])
         
-    for i in range(locus,len(route1)):   #Prend la 2eme moitier du parent 2
+    for i in range(locus,len(route1)):   #Prend la 2eme partie du parent 2
         taken=False
         for j in range(0,locus):
-            if (isEqual(route2[i],route1[j])):          #Vérifie que aucune ville du parent 2 n'a déjà été prisent via parent 1
+            if route2[i].equal(route1[j]):          #Vérifie que aucune ville du parent 2 n'a déjà été prisent via parent 1
                 taken=True
         if (taken==False):
             new_route.append(route2[i])            
         else:
             new_route.append(City(x=-1, y=-1))          #Si une ville a déjà été prise on met un -1 à la place
     for i in range(locus, len(route2)):   #S'occupe des endroit où il y a un 0 pour lui trouver une ville par laquelle on passe pas encore
-        if (isEqual(new_route[i],City(x=-1, y=-1))):
+        if(new_route[i].equal(City(x=-1, y=-1))):
             new_route[i]=notTaken(new_route,route2)
     return new_route
 
@@ -172,10 +158,11 @@ def notTaken(liste1, liste2):
     input : liste1, liste2 = list of City (route)
     output : retrun a City 
     """
+    
     for i in range(len(liste2)):
         taken = False
         for j in range(len(liste1)):
-            if isEqual(liste2[i],liste1[j]):
+            if(liste2[i].equal(liste1[j])):
                 taken = True
         if taken == False:
             return liste2[i]
@@ -196,10 +183,18 @@ def populationCrossover(best_pop, locus):
     return crossed_pop
 
 
+def mutation(route):
+    c1=int(random.randrange(0, len(route), step=1))
+    c2=int(random.randrange(0, len(route), step=1))
+    route[c1],route[c2] = route[c2], route[c1]
+    return route
 
-
-
-
+def populationMutation(crossed_pop):
+    muted_pop=[]
+    muted_pop.append(crossed_pop[0])
+    for i in range(1,len(crossed_pop)):
+        muted_pop.append(mutation(crossed_pop[i]))    
+    return muted_pop
 """----------------------------#5 New gen ---------------------------------"""
 def newGen(offspring, sizePop, cityList):
     """
@@ -221,18 +216,20 @@ def newGen(offspring, sizePop, cityList):
 def plotgraph(numberOfCities, sizePop, numberOfIteration):
     
     cityList = createCityList(numberOfCities)
-    listOfBestDistance =[]
+    #cityList=[City(0,1),City(1,1),City(1,0),City(0,0)]
+    
     pop = createPopulation(sizePop, cityList)
     initialPopulation = copy.deepcopy(pop)
-    
+    listOfBestDistance =[computeDistanceRoute(pop[0])]
     for i in range (0, numberOfIteration):
         sortedPop = sortPopulation(pop)                           #Pop trié 
         listOfBestDistance.append(computeDistanceRoute(sortedPop[0]))
         selectedPop = selectionBestRoutes(sortedPop,sizePop//2)        #Garde que les meilleurs
-        crossedPop = populationCrossover(selectedPop, 3)     #Crossover parmi les meilleurs
-        pop = newGen(crossedPop, sizePop, cityList)                           #Recré un population
+        crossedPop = populationCrossover(selectedPop, int(random.randrange(1, len(cityList)-1, step=1)))     #Crossover parmi les meilleurs
+        mutedPop = populationMutation(crossedPop)
+        pop = newGen(mutedPop, sizePop, cityList)                           #Recré un population
     
-       
+    #First pop
     xCitiesInit=[]
     yCitiesInit=[]
     for i in range(0,len(initialPopulation[0])):
@@ -240,20 +237,21 @@ def plotgraph(numberOfCities, sizePop, numberOfIteration):
         
     for i in range(0,len(initialPopulation[0])):
         yCitiesInit.append(initialPopulation[0][i].getY())
+        
+
     
-    
-    
+    #last pop
     xCities=[]
-    yCities=[]
-    
+    yCities=[]  
     for i in range(0,len(pop[0])):
         xCities.append(pop[0][i].getX())
         
     for i in range(0,len(pop[0])):
         yCities.append(pop[0][i].getY())
+        
+
     
     figure, axes = plt.subplots(1,4,figsize=(20,5))
-     
 
     axes[0].plot(xCitiesInit, yCitiesInit,'ro')
     axes[0].set_xlabel('x coordinate')
@@ -280,8 +278,8 @@ def plotgraph(numberOfCities, sizePop, numberOfIteration):
 def main():
     
     #♣interestingValues(numberOfCities, sizePop, numberOfIteration)
-    plotgraph(10, 50, 100)
-    plotgraph(20, 50, 100)
+    plotgraph(20, 10, 100)
+    
     
 if __name__ == "__main__":
     main()
