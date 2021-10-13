@@ -7,10 +7,11 @@ Created on Sat Oct  2 19:06:11 2021
 
 import numpy as np, random, copy, operator, pandas as pd, matplotlib.pyplot as plt
 import time
-
+from crossover import *
 
 
 """"------------#1 Initial population generated randomly-----------------"""
+
 class City:
     """
     Class City each city has coordinate (x,y)
@@ -83,10 +84,6 @@ def createPopulation(popSize, cityList):
     return population
 
 
-
-
-
-
 """"---------#2 Evaluate the objective function for each individual--------"""
 
 
@@ -148,19 +145,19 @@ def crossover(route1, route2, locus):
     """
     
     new_route=[]
-    for i in range(0, locus): #Prend la 1er partie de parent 1
+    for i in range(0, locus): 
         new_route.append(route1[i])
         
-    for i in range(locus,len(route2)): #Prend la 2eme partie du parent 2
+    for i in range(locus,len(route2)): 
         taken=False
         for j in range(0,locus):
-            if route2[i].equal(route1[j]): #Vérifie que aucune ville du parent 2 n'a déjà été prisent via parent 1
+            if route2[i].equal(route1[j]): 
                 taken=True
         if (taken==False):
             new_route.append(route2[i])            
         else:
-            new_route.append(City(x=-1, y=-1)) #Si une ville a déjà été prise on met un -1 à la place
-    for i in range(locus, len(route2)):   #S'occupe des endroit où il y a un 0 pour lui trouver une ville par laquelle on passe pas encore
+            new_route.append(City(x=-1, y=-1)) 
+    for i in range(locus, len(route2)):  
         if(new_route[i].equal(City(x=-1, y=-1))):
             new_route[i]=notTaken(new_route,route2)
     return new_route
@@ -171,24 +168,40 @@ def doubleCrossover(route1, route2, locus1, locus2):
     new_route=[]
     for i in range(0, locus1): 
         new_route.append(route1[i])
-    for i in range(locus2,len(route1)):
-        new_route.append(route1[i])
+    
+    
     for i in range(locus1,locus2): 
+        
         taken=False
+        
         for j in range(0,locus1):
             if route2[i].equal(route1[j]): 
                 taken=True
+              
         for j in range(locus2,len(route1)):
+
             if(route2[i].equal(route1[j])):
                 taken=True
+
         if (taken==False):
-            new_route.append(route2[i])            
+            new_route.append(route2[i])   
+
         else:
             new_route.append(City(x=-1, y=-1)) 
-            
+               
+    for i in range(locus2,len(route1)):
+        new_route.append(route1[i])
+        
     for i in range(locus1, locus2):   
         if(new_route[i].equal(City(x=-1, y=-1))):
             new_route[i]=notTaken(new_route,route2)
+    
+    #print("r1",route1)
+    #print("r2",route2)
+    #print("l1",locus1)
+    #print("l2",locus2)
+    #print("newroute",new_route)
+    
     return new_route
 
 def notTaken(liste1, liste2):    
@@ -207,7 +220,7 @@ def notTaken(liste1, liste2):
         if taken == False:
             return liste2[i]
     
-
+"""---------------------Reproduction-------------------------------------- """
 def populationCrossoverDeterministic(best_pop):
     
     crossed_pop=[]
@@ -249,6 +262,62 @@ def populationCrossoverRandom2Children(best_pop):
     
     for i in range(0, var):
         
+        route1=random.sample(best_pop, 1)
+        route1=route1[0]
+        best_pop.remove(route1)
+        
+        route2=random.sample(best_pop, 1)
+        route2=route2[0]
+        best_pop.remove(route2)
+        
+        locus = int(random.randrange(1, len(route1)-1, step=1))
+
+        crossed_pop.append(crossover(route1, route2, locus))
+        crossed_pop.append(crossover(route2, route1, locus))
+        
+ 
+    return crossed_pop
+
+def populationDoubleCrossover(best_pop):
+    
+    crossed_pop=[]
+    crossed_pop.append(best_pop[0]) #garde le meilleur élément
+    var = (len(best_pop)//2) - (1-len(best_pop)%2)
+
+    for i in range(0, var):
+        
+        
+        route1=random.sample(best_pop, 1)
+        route1=route1[0]
+        #best_pop.remove(route1)
+        
+        route2=random.sample(best_pop, 1)
+        route2=route2[0]
+        #best_pop.remove(route2)
+        
+        locus1 = int(random.randrange(1, len(route1)-1, step=1))
+        locus2 = int(random.randrange(1, len(route1)-1, step=1))
+        
+        while(locus1>locus2 or locus1==locus2):
+            locus1 = int(random.randrange(1, len(route1)-1, step=1))
+            locus2 = int(random.randrange(1, len(route1)-1, step=1))            
+        
+        
+        child1 = doubleCrossover(route1, route2, locus1, locus2)
+        child2 = doubleCrossover(route2, route1, locus1, locus2)
+        
+        crossed_pop.append(child1)
+        crossed_pop.append(child2)
+        
+    return crossed_pop    
+ 
+def populationPMXCrossover(best_pop):
+    
+    crossed_pop=[]
+    crossed_pop.append(best_pop[0]) #garde le meilleur élément
+    var = (len(best_pop)//2) - (1-len(best_pop)%2)
+    
+    for i in range(0, var):
         
         route1=random.sample(best_pop, 1)
         route1=route1[0]
@@ -301,7 +370,7 @@ def newGen(offspring, sizePop, cityList):
 
 
 def plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration, 
-              nbrSameValue, mutationRate, typeOfCrossover):
+              nbrSameValue, mutationRate, typeOfCrossover,plotBool):
     
     
     pop = createPopulation(sizePop, cityList)
@@ -310,9 +379,10 @@ def plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration,
     i = 1
     count = 0
     while(count<nbrSameValue and i<numberMaxOfIteration):
-        sortedPop = sortPopulation(pop)              
+        
+        sortedPop = sortPopulation(pop)   
         listOfBestDistance.append(computeDistanceRoute(sortedPop[0]))
-        selectedPop = selectionBestRoutes(sortedPop, sizePop-sizePop//3)
+        selectedPop = selectionBestRoutes(sortedPop, sizePop-2)
         
         #Crossover
         if(typeOfCrossover == "Random"):
@@ -323,18 +393,23 @@ def plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration,
             
         if(typeOfCrossover == "2Children"):
             offspring = populationCrossoverRandom2Children(selectedPop)
+        
+        if(typeOfCrossover == "Double"):
+            offspring = populationDoubleCrossover(selectedPop)  
             
+        if(typeOfCrossover == "PMX"):
+            offspring = populationPMXCrossover(selectedPop)        
+   
         #Mutation    
         if(int(random.randrange(1, 1/mutationRate, step=1))==2):
             offspring = populationMutation(offspring)
-            
         pop = newGen(offspring, sizePop, cityList)
-        
         #Stopping criterion with delta
         if((listOfBestDistance[i-1]-listOfBestDistance[i])<0.001):
             count+=1
         else:
             count=0
+        
         #Stopping criterion with nbr of total iteration
         i+=1
         
@@ -360,33 +435,33 @@ def plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration,
         yCities.append(pop[0][i].getY())
         
 
-    """
-    figure, axes = plt.subplots(1,4,figsize=(20,5))
-
-    axes[0].plot(xCitiesInit, yCitiesInit,'ro')
-    axes[0].set_xlabel('x coordinate')
-    axes[0].set_ylabel('y coordinate')
-    axes[0].title.set_text('Position of {} cities'.format(numberOfCities))
+    if(plotBool==True):
+        figure, axes = plt.subplots(1,4,figsize=(20,5))
     
-    axes[1].plot(xCitiesInit, yCitiesInit)
-    axes[1].plot(xCitiesInit, yCitiesInit,'ro')
-    axes[1].set_xlabel('x coordinate')
-    axes[1].set_ylabel('y coordinate')
-    axes[1].title.set_text('Initial route')
+        axes[0].plot(xCitiesInit, yCitiesInit,'ro')
+        axes[0].set_xlabel('x coordinate')
+        axes[0].set_ylabel('y coordinate')
+        axes[0].title.set_text('Position of {} cities'.format(numberOfCities))
+        
+        axes[1].plot(xCitiesInit, yCitiesInit)
+        axes[1].plot(xCitiesInit, yCitiesInit,'ro')
+        axes[1].set_xlabel('x coordinate')
+        axes[1].set_ylabel('y coordinate')
+        axes[1].title.set_text('Initial route')
+        
+        axes[2].plot(xCities, yCities)
+        axes[2].plot(xCities, yCities,'ro')
+        axes[2].set_xlabel('x coordinate')
+        axes[2].set_ylabel('y coordinate')
+        axes[2].title.set_text("Route after {} iterations".format(numberMaxOfIteration))
+        
+        axes[3].plot(listOfBestDistance)
+        axes[3].set_xlabel('iteration')
+        axes[3].set_ylabel('distances')   
+        axes[3].title.set_text('Evolution of the distance of the best route')
+        
+        figure.tight_layout()
     
-    axes[2].plot(xCities, yCities)
-    axes[2].plot(xCities, yCities,'ro')
-    axes[2].set_xlabel('x coordinate')
-    axes[2].set_ylabel('y coordinate')
-    axes[2].title.set_text("Route after {} iterations".format(numberMaxOfIteration))
-    
-    axes[3].plot(listOfBestDistance)
-    axes[3].set_xlabel('iteration')
-    axes[3].set_ylabel('distances')   
-    axes[3].title.set_text('Evolution of the distance of the best route')
-    
-    figure.tight_layout()
-    """
     print(typeOfCrossover, listOfBestDistance[-1])
 
 
@@ -396,30 +471,88 @@ def plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration,
 
 def main():
     
-    #plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration, mutationRate)
+    #plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration, mutationRate, plotBool)
     
-
-
-
-        
-    numberOfCities = 18
+    numberOfCities = 15
+    
     cityList = createKnownCityList(numberOfCities)
-    random.shuffle(cityList)
-    """
-    for i in range(5):
-        plotgraph(cityList, numberOfCities, 12, 10**5, 40**4, 0.01, "Random")
-        
-    for i in range(5):
-        plotgraph(cityList, numberOfCities, 12, 10**5, 40**4, 0.01, "Deterministic")
-    """
+    random.shuffle(cityList) 
     
-
-    for i in range(5):
+    for i in range(1):
         start = time.time()
-        plotgraph(cityList, numberOfCities, 12, 10**5, 40**4, 0.01, "2Children")    
-    
+        plotgraph(cityList, numberOfCities, 12, 10**5, 10**4, 0.01, "PMX", False)
         end = time.time()
-        print(end-start)
+        print("time",end-start)      
+
+    for i in range(1):
+        start = time.time()
+        plotgraph(cityList, numberOfCities, 12, 10**5, 10**4, 0.01, "Random", False)
+        end = time.time()
+        print("time",end-start)        
+        
+    for i in range(1):
+        start = time.time()
+        plotgraph(cityList, numberOfCities, 12, 10**5, 10**4, 0.01, "2Children", False)
+        end = time.time()
+        print("time",end-start)   
+    
+    for i in range(1):
+        start = time.time()    
+        plotgraph(cityList, numberOfCities, 12, 10**5, 10**4, 0.01, "Double", False)
+        end = time.time()
+        print("time",end-start)  
+
+    for i in range(1):
+        plotgraph(cityList, numberOfCities, 12, 10**5, 10**4, 0.01, "Deterministic", False)
+    
+    
+    """ 
+    numberOfCities = 15
+    
+    parent1 = createKnownCityList(numberOfCities)
+    random.shuffle(parent1) 
+
+    parent2 = createKnownCityList(numberOfCities)
+    random.shuffle(parent2)
+    
+    locus1 = 1
+    locus2 = 5
+       
+    while(locus1>locus2 or locus1==locus2):
+        locus1 = int(random.randrange(1, len(parent1)-1, step=1))
+        locus2 = int(random.randrange(1, len(parent1)-1, step=1))    
+        print("fr")
+    doubleCrossover(r1,r2,locus1,locus2)
+    
+    (o1,o2)=PMX(parent1, parent2)
+    print("p1",parent1)
+    print("p2",parent2)
+    print("o1",o1)
+    print("o2",o2)
+    """
+    
     
 if __name__ == "__main__":
     main()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
