@@ -31,106 +31,83 @@ class City:
         return "(" + str(self.x) + "," + str(self.y) + ")"
 
 
-def createKnownCityList(numberOfCities):
+def singlePointcrossover(route1, route2, locus):
     """
-    Create a known list of City of size numberOfCities
+    Single crossover at the locus example locus=half: 1234 and 2412 give 1243 
+    input : two routes (list of City) 
+    output : retrun a route which results from the crossover
     """
-    cityList = []
-    for i in range(0,numberOfCities):
-        cityList.append(City(x= i, y= 1)) 
-    return cityList
-
-
-
-
-"""
-def recursion1 (temp_child , firstCrossPoint , secondCrossPoint , parent1MiddleCross , parent2MiddleCross, relations) :
-    child = np.array([0 for i in range(len(parent1))])
     
-    for i,j in enumerate(temp_child[:firstCrossPoint]):#i=count , j=value of what is in paranthese
-        c=0
-        for x in relations:
-            if j == x[0]:
-                child[i]=x[1]
-                c=1
-                break
-        if c==0:
-            child[i]=j
+    new_route=[]
+    for i in range(0, locus): 
+        new_route.append(route1[i])
+        
+    for i in range(locus,len(route2)): 
+        taken=False
+        for j in range(0,locus):
+            if route2[i].equal(route1[j]): 
+                taken=True
+        if (taken==False):
+            new_route.append(route2[i])            
+        else:
+            new_route.append(City(x=-1, y=-1)) 
+    for i in range(locus, len(route2)):  
+        if(new_route[i].equal(City(x=-1, y=-1))):
+            new_route[i]=notTaken(new_route,route2)
+    return new_route
+
+
+def twoPointCrossover(route1, route2, locus1, locus2):
     
-    j=0
-    for i in range(firstCrossPoint,secondCrossPoint):
-        child[i]=parent2MiddleCross[j]
-        j+=1
+    new_route=[]
+    for i in range(0, locus1): 
+        new_route.append(route1[i])   
+    for i in range(locus1,locus2):    
+        taken=False  
+        for j in range(0,locus1):
+            if route2[i].equal(route1[j]): 
+                taken=True  
+        for j in range(locus2,len(route1)):
+            if(route2[i].equal(route1[j])):
+                taken=True
+        if (taken==False):
+            new_route.append(route2[i])   
+        else:
+            new_route.append(City(x=-1, y=-1)) 
+    for i in range(locus2,len(route1)):
+        new_route.append(route1[i])
+    for i in range(locus1, locus2):   
+        if(new_route[i].equal(City(x=-1, y=-1))):
+            new_route[i]=notTaken(new_route,route2)
     
-    for i,j in enumerate(temp_child[secondCrossPoint:]):
-        c=0
-        for x in relations:
-            if j == x[0]:
-                child[i+secondCrossPoint]=x[1]
-                c=1
-                break
-        if c==0:
-            child[i+secondCrossPoint]=j
+    return new_route
+
+def notTaken(liste1, liste2):    
+    """
+    Find a City among liste2 which is not in liste1
+    We suppose that there exist one
+    input : liste1, liste2 = list of City (route)
+    output : retrun a City 
+    """
     
-    child_unique=np.unique(child)
-    if len(child)>len(child_unique):
-        child=recursion1(child,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
-    return(child)
-
-def recursion2(temp_child,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations):
-    child = np.array([0 for i in range(len(parent1))])
-    for i,j in enumerate(temp_child[:firstCrossPoint]):
-        c=0
-        for x in relations:
-            if j == x[1]:
-                child[i]=x[0]
-                c=1
-                break
-        if c==0:
-            child[i]=j
-    j=0
-    for i in range(firstCrossPoint,secondCrossPoint):
-        child[i]=parent1MiddleCross[j]
-        j+=1
-
-    for i,j in enumerate(temp_child[secondCrossPoint:]):
-        c=0
-        for x in relations:
-            if j == x[1]:
-                child[i+secondCrossPoint]=x[0]
-                c=1
-                break
-        if c==0:
-            child[i+secondCrossPoint]=j
-    child_unique=np.unique(child)
-    if len(child)>len(child_unique):
-        child=recursion2(child,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
-    return(child)
-
-def createChildren(parent1,parent2):
-    firstCrossPoint = 4
-    secondCrossPoint = 7
-
-    parent1MiddleCross = parent1[firstCrossPoint:secondCrossPoint]
-    parent2MiddleCross = parent2[firstCrossPoint:secondCrossPoint]
-
-    temp_child1 = parent1[:firstCrossPoint] + parent2MiddleCross + parent1[secondCrossPoint:]
-    temp_child2 = parent2[:firstCrossPoint] + parent1MiddleCross + parent2[secondCrossPoint:]
-
-    relations = []
-    for i in range(len(parent1MiddleCross)):
-        relations.append([parent2MiddleCross[i], parent1MiddleCross[i]])
-    child1=recursion1(temp_child1,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
-    child2=recursion2(temp_child2,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
+    for i in range(len(liste2)):
+        taken = False
+        for j in range(len(liste1)):
+            if(liste2[i].equal(liste1[j])):
+                taken = True
+        if taken == False:
+            return liste2[i]
     
-    return child1,child2
-"""
+
+
+
+
+
 def PMX(parent1,parent2):
 
     firstCrossPoint = np.random.randint(0,len(parent1)-2)
     secondCrossPoint = np.random.randint(firstCrossPoint+1,len(parent1)-1)
-    print(firstCrossPoint)
-    print(secondCrossPoint)
+
     parent1MiddleCross = parent1[firstCrossPoint:secondCrossPoint]
     parent2MiddleCross = parent2[firstCrossPoint:secondCrossPoint]
 
@@ -140,10 +117,7 @@ def PMX(parent1,parent2):
     relations = []
     for i in range(len(parent1MiddleCross)):
         relations.append([parent2MiddleCross[i], parent1MiddleCross[i]])
-    #print("Middle",parent1MiddleCross)
-    #print("temp",temp_child1)
-    #print("relations",relations)
-    
+
     child1=recursion1WithCities(temp_child1,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
     child2=recursion2WithCities(temp_child2,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
     
@@ -223,27 +197,3 @@ def recursion2WithCities(temp_child,firstCrossPoint,secondCrossPoint,parent1Midd
     if(count>=1):
         child=recursion2WithCities(child,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
     return(child)
-"""
-parent1 = [1,2,3,4,5,6,7,8,9]
-parent2 = [5,4,6,1,2,7,3,9,8]
-
-
-firstCrossPoint = np.random.randint(0,len(parent1)-2)
-secondCrossPoint = np.random.randint(firstCrossPoint+1,len(parent1)-1)
-
-(c1,c2)=createChildren(parent1,parent2)
-
-print("",c1)
-print("",c2)
-
-liste1=createKnownCityList(5)
-liste2=copy.deepcopy(liste1)
-random.shuffle(liste2) 
-print(liste1)
-print(liste2)
-
-(c1,c2)=createChildrenWithCities(liste1,liste2)
-
-print("",c1)
-print("",c2)
-"""
