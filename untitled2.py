@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 20 00:56:49 2021
+
+@author: Arthur Gengler
+"""
+
 
 from random import sample
 from random import random
@@ -23,7 +30,7 @@ class NodesLeastDistanceGA:
         self._mutate_rate = 0.07
         self._population_size = 60 if len(parent) > 10 else 10
         self._new_generation_size = self._population_size*2
-        self._rounds = 1000
+        self._rounds = 200
         self._genlen = len(parent)
         self._verbose = verbose
         self._cached_distances = {}
@@ -218,8 +225,8 @@ class NodesLeastDistanceGA:
 
 def main():
     nodes = [(13, 2), (1, 12), (12, 5), (19, 6), (2, 10), (15, 15), (5, 11), (17, 9),
-             (10, 18), (17, 5), (13, 12), (1, 17), (2, 6), (7, 16), (19, 2), (3, 7),
-             (10, 9), (5, 19), (1, 2), (9, 2)
+             (10, 18), (17, 5), #(13, 12), #(1, 17), (2, 6), (7, 16), (19, 2), (3, 7),
+             #(10, 9), (5, 19), (1, 2), (9, 2)
              ]
     nodes += nodes[:1]
     ga = NodesLeastDistanceGA(nodes, 20)

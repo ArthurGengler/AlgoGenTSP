@@ -35,7 +35,7 @@ def singlePointcrossover(route1, route2, locus):
     """
     Single crossover at the locus example locus=half: 1234 and 2412 give 1243 
     input : two routes (list of City) 
-    output : retrun a route which results from the crossover
+    output : retrun 1 route which results from the crossover
     """
     
     new_route=[]
@@ -58,7 +58,10 @@ def singlePointcrossover(route1, route2, locus):
 
 
 def twoPointCrossover(route1, route2, locus1, locus2):
-    
+    """
+    return 1 route
+    """
+
     new_route=[]
     for i in range(0, locus1): 
         new_route.append(route1[i])   
@@ -97,13 +100,12 @@ def notTaken(liste1, liste2):
                 taken = True
         if taken == False:
             return liste2[i]
-    
-
-
-
 
 
 def PMX(parent1,parent2):
+    """
+    return 2 routes
+    """
 
     firstCrossPoint = np.random.randint(0,len(parent1)-2)
     secondCrossPoint = np.random.randint(firstCrossPoint+1,len(parent1)-1)
@@ -197,3 +199,5 @@ def recursion2WithCities(temp_child,firstCrossPoint,secondCrossPoint,parent1Midd
     if(count>=1):
         child=recursion2WithCities(child,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
     return(child)
+
+

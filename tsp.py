@@ -12,22 +12,30 @@ import operator
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
+import gzip
+import tsplib95
+import cProfile
 from crossoverfctpmx import *
 from reproduction import *
 from mutation import *
 from selection import *
+from reproduction2 import *
 
 """"------------#1 Initial population generated randomly-----------------"""
 
+GLOBMATRIX =[]
 
 class City:
     """
     Class City each city has coordinate (x,y)
     """
+    count=0
     def __init__(self, x, y):
         self.x = x
         self.y = y
-    
+        self.numCity = City.count
+        self.__class__.count += 1
+        
     def distance(self, city):
         xDis = abs(self.x - city.x)
         yDis = abs(self.y - city.y)
@@ -41,6 +49,9 @@ class City:
     
     def getX(self):
         return self.x
+    
+    def getCity(self):
+        return self.numCity 
     
     def getY(self):
         return self.y
@@ -116,6 +127,32 @@ def computeDistanceRoute(route):
     return distance_tot
 
 
+
+def matriceDistance(cityList):
+    global GLOBMATRIX
+    GLOBMATRIX = np.zeros((len(cityList),len(cityList)))
+    for i in range (len(GLOBMATRIX)):
+        for j in range (len(GLOBMATRIX)):
+            GLOBMATRIX[i][j] = cityList[i].distance(cityList[j])
+
+def computeDistanceRoute2(route):
+    """
+    Compute the distance to travel for a route
+    imput : route = list of City
+    output : total distance (float)
+    """
+    
+    distance_tot = 0
+    for i in range(len(route)-1):
+        city1 = route[i].getCity()
+        city2 = route[i+1].getCity()
+        distance_tot = distance_tot + GLOBMATRIX[city1][city2]
+    city1 = route[len(route)-1].getCity()
+    city2 = route[0].getCity()
+    distance_tot = distance_tot + GLOBMATRIX[city1][city2]
+    
+    return distance_tot
+
 def sortPopulation(population):
     """
     Sort a population according to the total distance to travel
@@ -125,32 +162,29 @@ def sortPopulation(population):
     #On veut la plus petite distance possible donc on classe du plus petit au plus grand
     return sorted(population, key = computeDistanceRoute, reverse = False)
 
+def sortPopulation2(population):
+    """
+    Sort a population according to the total distance to travel
+    imput : population : list of list of City
+    output : population : list of list of City
+    """
+    #On veut la plus petite distance possible donc on classe du plus petit au plus grand
+    return sorted(population, key = computeDistanceRoute2, reverse = False)
 
 
-
-
-
-
-""""-------------------#3 Selection of individual--------------------------"""
-
-
-
+"""--------------------#3 Selection of individual--------------------------"""
 
 
 """-----------------------------#4 Crossover------------------------------ """
 
-
-
-
     
-"""---------------------Reproduction-------------------------------------- """
+"""-----------------------#5 Reproduction----------------------------------"""
 
 
-"""-----------------------------#5 Mutation------------------------------ """
+"""-----------------------------#6 Mutation------------------------------- """
 
 
-
-"""----------------------------#6 New gen ---------------------------------"""
+"""----------------------------#7 New gen -------------------------------- """
 
 def newGen(offspring, sizePop, cityList):
     """
@@ -169,24 +203,35 @@ def newGen(offspring, sizePop, cityList):
 
 
 
-def algoGen(cityList, numberOfCities, sizePop, numberMaxOfIteration, 
-              nbrSameValue, mutationRate, typeOfCrossover,plotBool):
+def algoGen():
     
+    data = np.load('TSP_n25_1.npy')
+    numberOfCities = len(data[0])
+    #print(numberOfCities)
+    cityList = createCityListFromFile(data)
+    #random.shuffle(cityList) 
     
+    maxIt = 500
+    
+    popSize = 50
+    maxEpsilon = 1000
+    mutationRate = 0.01
+    crossoverRate = 0.7
+    
+    mutationRateInit = mutationRate
     pop = createPopulation(sizePop, cityList)
-    initialPopulation = copy.deepcopy(pop)
-    listOfBestDistance =[computeDistanceRoute(pop[0])]
+    matriceDistance(cityList)
+    listOfBestDistance =[computeDistanceRoute2(pop[0])]
     i = 1
     count = 0
-    while(count<nbrSameValue and i<numberMaxOfIteration):
+    #while(count<nbrSameValue and i<numberMaxOfIteration):
+    while(i<numberMaxOfIteration):    
+        sortedPop = sortPopulation2(pop)   
+        listOfBestDistance.append(computeDistanceRoute2(sortedPop[0]))
+        selectedPop = sortedPop
         
-        sortedPop = sortPopulation(pop)   
-        listOfBestDistance.append(computeDistanceRoute(sortedPop[0]))
-        selectedPop = selectionBestRoutes(sortedPop, sizePop-sizePop//5)
-        
-        #Crossover
         if(typeOfCrossover == "Random"):
-            offspring = populationCrossoverRandom(selectedPop)
+            pop = populationSinglePointCrossover2(selectedPop, sizePop, 1, 5, mutationRate, crossoverRate, cityList)
         
         if(typeOfCrossover == "Deterministic"):
             offspring = populationCrossoverDeterministic(selectedPop) 
@@ -195,37 +240,29 @@ def algoGen(cityList, numberOfCities, sizePop, numberMaxOfIteration,
             offspring = populationCrossoverRandom2Children(selectedPop)
         
         if(typeOfCrossover == "Double"):
-            offspring = populationDoubleCrossover(selectedPop)  
+            pop = populationTwoPointCrossover2(selectedPop, sizePop, 1, 5, mutationRate, crossoverRate, cityList)  
             
         if(typeOfCrossover == "PMX"):
-            offspring = populationPMXCrossover(selectedPop)        
-   
-        #Mutation    
-        if(random.random()<mutationRate):
-            offspring = populationMutation(offspring)
+            pop = populationPMXCrossover2(selectedPop, sizePop, 1, 5, mutationRate, crossoverRate, cityList)   
             
-        pop = newGen(offspring, sizePop, cityList)
-        #Stopping criterion with delta
+        if (listOfBestDistance[i-1]<listOfBestDistance[i]):
+            print("wtf")
         if((listOfBestDistance[i-1]-listOfBestDistance[i])<0.001):
             count+=1
+            if(count>=nbrSameValue//2):
+                mutationRate = 0.2
         else:
             count=0
+            mutationRate = mutationRateInit
         
-        #Stopping criterion with nbr of total iteration
         i+=1
         
         
-    #First pop
-    xCitiesInit=[]
-    yCitiesInit=[]
-    for i in range(0,len(initialPopulation[0])):
-        xCitiesInit.append(initialPopulation[0][i].getX())
-        
-    for i in range(0,len(initialPopulation[0])):
-        yCitiesInit.append(initialPopulation[0][i].getY())
-        
+    print(listOfBestDistance[-1])
+    return listOfBestDistance, pop
 
-    
+def plotGraph(listOfBestDistance, pop):
+
     #last pop
     xCities=[]
     yCities=[]  
@@ -236,63 +273,96 @@ def algoGen(cityList, numberOfCities, sizePop, numberMaxOfIteration,
         yCities.append(pop[0][i].getY())
     yCities.append(pop[0][0].getY())    
 
-    if(plotBool==True):
-        figure, axes = plt.subplots(1,4,figsize=(20,5))
     
-        axes[0].plot(xCitiesInit, yCitiesInit,'ro')
-        axes[0].set_xlabel('x coordinate')
-        axes[0].set_ylabel('y coordinate')
-        axes[0].title.set_text('Position of {} cities'.format(numberOfCities))
+    figure, axes = plt.subplots(1,3,figsize=(20,5))
+
+    axes[0].plot(xCities, yCities,'ro')
+    axes[0].set_xlabel('x coordinate')
+    axes[0].set_ylabel('y coordinate')
+    axes[0].title.set_text('Position of {} cities'.format(len(xCities)))
         
-        axes[1].plot(xCitiesInit, yCitiesInit)
-        axes[1].plot(xCitiesInit, yCitiesInit,'ro')
-        axes[1].set_xlabel('x coordinate')
-        axes[1].set_ylabel('y coordinate')
-        axes[1].title.set_text('Initial route')
-        
-        axes[2].plot(xCities, yCities)
-        axes[2].plot(xCities, yCities,'ro')
-        axes[2].set_xlabel('x coordinate')
-        axes[2].set_ylabel('y coordinate')
-        axes[2].title.set_text("Route after {} iterations".format(numberMaxOfIteration))
-        
-        axes[3].plot(listOfBestDistance)
-        axes[3].set_xlabel('iteration')
-        axes[3].set_ylabel('distances')   
-        axes[3].title.set_text('Evolution of the distance of the best route')
-        
-        figure.tight_layout()
+    axes[1].plot(xCities, yCities)
+    axes[1].plot(xCities, yCities,'ro')
+    axes[1].set_xlabel('x coordinate')
+    axes[1].set_ylabel('y coordinate')
+    axes[1].title.set_text("Route after {} iterations".format(len(listOfBestDistance)))
     
-    print(typeOfCrossover, listOfBestDistance[-1])
-    return listOfBestDistance[-1]
-
-
+    axes[2].plot(listOfBestDistance)
+    axes[2].set_xlabel('iteration')
+    axes[2].set_ylabel('distances')   
+    axes[2].title.set_text('Evolution of the distance of the best route')
+    
+    figure.tight_layout()
 """"-------------------------------Main----------------------------------- """
 
 
 def main():
+    """
+    problem = tsplib95.load("berlin52.tsp.gz")
+    print(problem)
+    """
+    """
+    file = gzip.open('berlin52.tsp.gz', 'rb')
+    line = file.readline()
+    liste = []
+    while (line):    
+        line = file.readline().split()
+        liste.append(line)
+    xcoordonne = []
+    for i in range(5,len(liste)-2):
+        xcoordonne.append(int(float(str(liste[i][1]).strip("'b"))))
     
-    #plotgraph(cityList, numberOfCities, sizePop, numberMaxOfIteration, mutationRate, plotBool)
+    ycoordonne = []
+    for i in range(5,len(liste)-2):
+        ycoordonne.append(int(float(str(liste[i][2]).strip("'b"))))
+    cityList=[]
+    for i in range(len(xcoordonne)):
+        cityList.append(City(x=xcoordonne[i],y=ycoordonne[i]))
+    """
     
     data = np.load('TSP_n25_1.npy')
     numberOfCities = len(data[0])
+    #print(numberOfCities)
     cityList = createCityListFromFile(data)
-    random.shuffle(cityList) 
-    popSize = 30
-    maxIt = 10**4
-    maxEpsilon = 300
-    mutationRate = 0.01 #10^-3
+    #random.shuffle(cityList) 
+    
+    maxIt = 500
+    
+    popSize = 50
+    maxEpsilon = 1000
+    mutationRate = 0.01
+    crossoverRate = 0.7
+    
+    cProfile.run('algoGen() ')
+    
+    """   
+    distanceFinalPMX1 = []
+    for i in range(5):
+        start = time.time()
+        (listOfBestDistance, finalPop) = algoGen(cityList, numberOfCities, popSize, maxIt, maxEpsilon, mutationRate, crossoverRate, "PMX") 
+        finalDistance = listOfBestDistance[-1]
+        distanceFinalPMX1.append(finalDistance)
+        
+        plotGraph(listOfBestDistance, finalPop)
+        end = time.time()
+        print("time",end-start)
+         
+
+
+    distanceFinalRandom = []
+    for i in range(5):
+        start = time.time()
+        (listOfBestDistance, finalPop) = algoGen(cityList, numberOfCities, popSize, maxIt, maxEpsilon, mutationRate, crossoverRate, "Random") 
+        finalDistance = listOfBestDistance[-1]
+        distanceFinalRandom.append(finalDistance)
+        
+        #plotGraph(listOfBestDistance, finalPop)
+        end = time.time()
+        print("time",end-start)
+
     
     
-    for j in range(0,1):
-        distanceFinalPMX1 = []
-        for i in range(1):
-            start = time.time()
-            distanceFinalPMX1.append(algoGen(cityList, numberOfCities, popSize+30*j, maxIt, maxEpsilon, mutationRate, "Double", True))
-            end = time.time()
-            print("time",end-start)
-            
-    """     
+      
     for j in range(1,4):
         distanceFinalPMX2 = []
         for i in range(5):

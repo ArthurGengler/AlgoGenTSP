@@ -17,8 +17,10 @@ from reproduction import *
 def mutation(route):
     c1=int(random.randrange(0, len(route), step=1))
     c2=int(random.randrange(0, len(route), step=1))
-    route[c1],route[c2] = route[c2], route[c1]
-    return route
+    mutedRoute = copy.copy(route)
+    mutedRoute[c1],mutedRoute[c2] = mutedRoute[c2], mutedRoute[c1]
+    
+    return mutedRoute
 
 def populationMutation(crossed_pop):
     muted_pop=[]
