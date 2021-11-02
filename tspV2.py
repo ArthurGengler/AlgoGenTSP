@@ -9,6 +9,7 @@ import numpy as np
 import random
 import copy
 import operator
+import array
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
@@ -78,7 +79,8 @@ def createCityListFromTSPLIB(problem):
     
     cityList=[]
     for i in range(1,len(problem.node_coords)+1):
-        cityList.append(City(x=problem.node_coords[i][0],y=problem.node_coords[i][1]))
+        cityList.append(City(x=problem.node_coords[i][0],y=problem.node_coords[i][1], node =i-1))
+        
     return cityList
 
 def createRoute(cityList, numberOfCities):
@@ -107,12 +109,14 @@ def createPopulation(popSize, cityList):
 """----------------------------#2 Sort pop---------------------------------"""
 
 
+GLOBMATRIX =[]
+
 def matriceDistance(cityList):
     global GLOBMATRIX
     GLOBMATRIX = np.zeros((len(cityList),len(cityList)))
     for i in range (len(GLOBMATRIX)):
         for j in range (len(GLOBMATRIX)):
-            GLOBMATRIX[i][j] = cityList[i].distance(cityList[j])
+            GLOBMATRIX[cityList[i].node][cityList[j].node] = cityList[i].distance(cityList[j])
             
 def computeFitness(route):
     """
@@ -122,11 +126,11 @@ def computeFitness(route):
     """
     distance_tot = 0
     for i in range(len(route)-1):
-        city1 = route[i].getCity()
-        city2 = route[i+1].getCity()
+        city1 = route[i].node
+        city2 = route[i+1].node
         distance_tot = distance_tot + GLOBMATRIX[city1][city2]
-    city1 = route[len(route)-1].getCity()
-    city2 = route[0].getCity()
+    city1 = route[len(route)-1].node
+    city2 = route[0].node
     distance_tot = distance_tot + GLOBMATRIX[city1][city2]
     return distance_tot
 
@@ -163,7 +167,66 @@ def rankSelection(sorted_population):
     return parent1,parent2
 
 """-----------------------------#4 Crossover------------------------------ """
+def cxPartialyMatched(ind1, ind2):
+    """
+    ind1, ind2 sont une liste d'indice chaque indice faisant référence à une city
+    """
+    size = min(len(ind1), len(ind2))
+    p1, p2 = [0] * size, [0] * size
+    
+    # Initialize the position of each indices in the individuals
+    for i in range(size):
+        p1[ind1[i]] = i
+        p2[ind2[i]] = i
+    # Choose crossover points
+    cxpoint1 = random.randint(0, size)
+    cxpoint2 = random.randint(0, size - 1)
+    if cxpoint2 >= cxpoint1:
+        cxpoint2 += 1
+    else:  # Swap the two cx points
+        cxpoint1, cxpoint2 = cxpoint2, cxpoint1
+    cxpoint1 = 3
+    cxpoint2 = 6
+    # Apply crossover between cx points
+    for i in range(cxpoint1, cxpoint2):
+        # Keep track of the selected values
+        temp1 = ind1[i]
+        temp2 = ind2[i]
+        # Swap the matched value
+        ind1[i], ind1[p1[temp2]] = temp2, temp1
+        ind2[i], ind2[p2[temp1]] = temp1, temp2
+        # Position bookkeeping
+        p1[temp1], p1[temp2] = p1[temp2], p1[temp1]
+        p2[temp1], p2[temp2] = p2[temp2], p2[temp1]
 
+    return ind1, ind2
+
+def fromRouteToNode(route):
+    node =[]
+    for i in range(len(route)):
+        node.append(route[i].node)
+    return node
+
+def fromNodeToRoute(nodeList, cityList):
+    route = []
+    for i in range(len(nodeList)):
+        for j in range(len(cityList)):
+            if(cityList[j].node == nodeList[i]):
+                route.append(City(cityList[j].x,cityList[j].y,nodeList[i]))
+    return route
+
+def PMXMine(parent1, parent2):
+    
+    nodep1 = fromRouteToNode(parent1)
+    nodep2 = fromRouteToNode(parent2)
+    
+    nodec1, nodec2 = cxPartialyMatched(nodep1, nodep2)
+    
+    child1 = fromNodeToRoute(nodec1, parent1)
+    child2 = fromNodeToRoute(nodec2, parent1)
+    
+    return child1, child2
+    #return child1
 
 def PMX(parent1,parent2):
     """
@@ -264,6 +327,32 @@ def recursion2WithCities(temp_child,firstCrossPoint,secondCrossPoint,parent1Midd
         child=recursion2WithCities(child,firstCrossPoint,secondCrossPoint,parent1MiddleCross,parent2MiddleCross, relations)
     return(child)
 
+def breed(parent1, parent2):
+    """
+    startGene 3
+    endGene 8
+    p1 [(3,2), (2,2), (1,1), (2,1), (1,2), (4,2), (3,1), (5,2), (5,1), (4,1)]
+    p2 [(3,2), (2,2), (1,1), (2,1), (1,2), (4,2), (3,1), (5,2), (5,1), (4,1)]
+    c [(2,1), (1,2), (4,2), (3,1), (5,2), (3,2), (2,2), (1,1), (5,1), (4,1)]
+    """
+    
+    child = []
+    childP1 = []
+    childP2 = []
+    
+    geneA = int(random.random() * len(parent1))
+    geneB = int(random.random() * len(parent1))
+
+    startGene = min(geneA, geneB)
+    endGene = max(geneA, geneB)
+    
+    for i in range(startGene, endGene):
+        childP1.append(parent1[i])
+        
+    childP2 = [item for item in parent2 if item not in childP1]
+    child = childP1 + childP2
+    
+    return child
 
 def singlePointcrossover(parent1, parent2):
     """
@@ -355,7 +444,40 @@ def populationPMXCrossover(selectionType, sorted_pop, popSize, nBest, nRandom, m
     
     return crossed_pop
 
+def populationPMXCrossoverMine(selectionType, sorted_pop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList):
+    
+    crossed_pop=[]
+    for i in range(nBest):
+        crossed_pop.append(sorted_pop[i]) #garde le meilleur élément
 
+    nOffspring = popSize - nBest - nRandom
+    
+    for i in range(0, nOffspring//2):
+        #sorted_pop[:-5]
+        if(selectionType=="rank"):
+            (parent1,parent2) = rankSelection(sorted_pop)
+        if(selectionType=="before"):
+            (parent1,parent2) = rankSelection(sorted_pop[:-20])
+        
+        
+        if(crossoverRate>random.random()):    
+            (child1,child2) = PMXMine(parent1, parent2)
+        else:
+            (child1,child2) = (parent1, parent2)
+        if(random.random()<mutationRate):
+            child1 = mutation(child1)
+        if(random.random()<mutationRate):
+            child2 = mutation(child2)
+          
+        crossed_pop.append(list(child1))
+        crossed_pop.append(list(child2))
+    
+    if(popSize%2 == 1):
+        nRandom+=1
+    for i in range(nRandom):
+        crossed_pop.append(random.sample(cityList, len(cityList)))
+    
+    return crossed_pop
 
 def populationSinglePoint(sorted_pop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList):
     
@@ -389,6 +511,40 @@ def populationSinglePoint(sorted_pop, popSize, nBest, nRandom, mutationRate, cro
         crossed_pop.append(random.sample(cityList, len(cityList)))
     
     return crossed_pop
+
+def populationBreed(sorted_pop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList):
+    
+    crossed_pop=[]
+    for i in range(nBest):
+        crossed_pop.append(sorted_pop[i]) #garde le meilleur élément
+
+    nOffspring = popSize - nBest - nRandom
+    
+    for i in range(0, nOffspring//2):
+        
+        (parent1,parent2) = rankSelection(sorted_pop)
+        
+        if(crossoverRate>random.random()):    
+            child1 = breed(parent1, parent2)
+            child2 = breed(parent2, parent1)
+        else:
+            (child1,child2) = (parent1, parent2)
+           
+        if(random.random()<mutationRate):
+            child1 = mutation(child1)
+        if(random.random()<mutationRate):
+            child2 = mutation(child2)
+          
+        crossed_pop.append(list(child1))
+        crossed_pop.append(list(child2))
+    
+    if(popSize%2 == 1):
+        nRandom+=1
+    for i in range(nRandom):
+        crossed_pop.append(random.sample(cityList, len(cityList)))
+    
+    return crossed_pop
+
 
 """-----------------------#Plot graph----------------------------------"""
 def plotGraph(listOfBestDistance, pop):
@@ -429,24 +585,33 @@ cityList = createCityListFromTSPLIB(problem)
 """
 
 def algo(crossoverType,selectionType,elitism, data):
-    #ListOfCoordonne =  [(13, 2), (1, 12), (12, 5), (19, 6), (2, 10), (15, 15), (5, 11), (17, 9),
-    #         (10, 18), (17, 5), (13, 12), (1, 17), (2, 6), (7, 16), (19, 2), (3, 7),
-    #         (10, 9), (5, 19), (1, 2), (9, 2)]
     
-    #cityList = createCityListBasedOnList(ListOfCoordonne)
     
+    
+    """
+    ListOfCoordonne = data
+    cityList = createCityListBasedOnList(ListOfCoordonne)
+    
+    
+    
+    Create from file(Matthias)
+    """
     cityList = createCityListFromFile(data)
     
-    popSize = 50 
+    """
+    problem = data
+    cityList = createCityListFromTSPLIB(problem)
+    """
+    popSize = 200
     nBest = elitism
-    nRandom = 5
-    mutationRate = 0.01
-    crossoverRate = 0.7
+    nRandom = 1
+    mutationRate = 0.1
+    crossoverRate = 0.9
     
     mutationRateInit = mutationRate
     
     numberMaxOfIteration = 5000
-    nbrSameValue = 5000
+    nbrSameValue = 6000
     
     pop = createPopulation(popSize, cityList)
     
@@ -465,79 +630,47 @@ def algo(crossoverType,selectionType,elitism, data):
             pop = populationSinglePoint(sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
         if(crossoverType == "PMX"):
             pop = populationPMXCrossover(selectionType, sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)   
+        if(crossoverType == "Breed"):
+            pop = populationBreed(sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
+        if(crossoverType == "NewPMX"):
+            pop = populationPMXCrossoverMine(selectionType, sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
         if (listOfBestDistance[i-1]<listOfBestDistance[i]):
             print("wtf")
         if(listOfBestDistance[i-1]-listOfBestDistance[i]<0.001):
             count+=1
-            mutationRate = 0.1
+            mutationRate = 0.2
             
         else:
             count=0
             mutationRate = mutationRateInit
         i+=1
     
-    #print(crossoverType, ":", listOfBestDistance[-1])
-    #plotGraph(listOfBestDistance, pop)
+    print(crossoverType, ":", listOfBestDistance[-1])
+    plotGraph(listOfBestDistance, pop)
     return listOfBestDistance[-1]
 """----------------------------------------------------------------------"""
-data1 = np.load('TSP_n25_1.npy')
-cProfile.run('algo("SinglePoint","rank",1 , data1)')
+#ListOfCoordonne = [(13, 2), (1, 12), (12, 5), (19, 6), (2, 10), (15, 15), (5, 11), (17, 9),
+#             (10, 18), (17, 5), (13, 12), (1, 17), (2, 6), (7, 16), (19, 2), (3, 7),
+#             (10, 9), (5, 19), (1, 2), (9, 2)]
+
+
+problem = tsplib95.load('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/att48.tsp')
+"""
+for i in range(5):
+    algo("Breed","rank",5 , data1)
+#cProfile.run('algo("SinglePoint","rank",1 , data1)')
 
 """
-c
 
+data1 = np.load('TSP_n100_1.npy')
 finalDist = []
 computeTime = []
-for i in range(25):
+for i in range(5):
     start = time.time()
-    finalDist.append(algo("PMX","rank",1 , data1))
+    finalDist.append(algo("Breed","rank",10 , data1))
     end = time.time()
     computeTime.append(end-start)
+np.save('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/Arthur/newordered100', [finalDist,computeTime])
+print(finalDist)
 
-np.save('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/Arthur/PMX25', [finalDist,computeTime])
-
-data2 = np.load('TSP_n50_1.npy')
-
-finalDist = []
-computeTime = []
-for i in range(25):
-    start = time.time()
-    finalDist.append(algo("PMX","rank",1 , data2))
-    end = time.time()
-    computeTime.append(end-start)
-
-np.save('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/Arthur/PMX50', [finalDist,computeTime])
-
-data3 = np.load('TSP_n100_1.npy')
-
-finalDist = []
-computeTime = []
-for i in range(25):
-    start = time.time()
-    finalDist.append(algo("PMX","rank",1 , data3))
-    end = time.time()
-    computeTime.append(end-start)
-
-np.save('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/Arthur/PMX100', [finalDist,computeTime])
-
-
-data_a = [finalDist, finalDist]
-
-ticks = ['No elitism', 'Elitism']
-
-def set_box_color(bp, color):
-    plt.setp(bp['boxes'], color=color)
-    plt.setp(bp['whiskers'], color=color)
-    plt.setp(bp['caps'], color=color)
-    plt.setp(bp['medians'], color=color)
-
-plt.figure()
-
-bpl = plt.boxplot(data_a, positions=np.array(range(len(data_a)))*2.0, sym='', widths=0.6)
-set_box_color(bpl, '#636363') # colors are from http://colorbrewer2.org/
-
-plt.xticks(range(0, len(ticks) * 2, 2), ticks)
-plt.tight_layout()
-
-"""
 
