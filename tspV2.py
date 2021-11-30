@@ -64,23 +64,32 @@ def createKnownCityList(numberOfCities):
     return cityList
 
 def createCityListBasedOnList(ListOfCoordonne):
+    """
+    Create a list of City based on list of coordonne
+    """
     cityList = []
     for i in range(0,len(ListOfCoordonne)):
         cityList.append(City(x= ListOfCoordonne[i][0], y=ListOfCoordonne[i][1], node=i )) 
     return cityList
 
-def createCityListFromFile(data):
+def createCityListFromFile(filename):
+    """
+    Create a list of City based on Matthias file
+    """
+    data = np.load('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/SetCities/'+filename)
     cityList = []
     for i in range(0,len(data[0])):
             cityList.append(City(x=data[0][i],y=data[1][i], node=i))
     return cityList
 
-def createCityListFromTSPLIB(problem):
-    
+def createCityListFromTSPLIB(filename):
+    """
+    Create a list of city based onf TSPLIB file
+    """
+    data = tsplib95.load('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/SetCities/'+filename)
     cityList=[]
-    for i in range(1,len(problem.node_coords)+1):
-        cityList.append(City(x=problem.node_coords[i][0],y=problem.node_coords[i][1], node =i-1))
-        
+    for i in range(1,len(data.node_coords)+1):
+        cityList.append(City(x=data.node_coords[i][0],y=data.node_coords[i][1], node =i-1))
     return cityList
 
 def createRoute(cityList, numberOfCities):
@@ -201,6 +210,58 @@ def cxPartialyMatched(ind1, ind2):
 
     return ind1, ind2
 
+def cxOrdered(ind1, ind2):
+    """Executes an ordered crossover (OX) on the input
+    individuals. The two individuals are modified in place. This crossover
+    expects :term:`sequence` individuals of indices, the result for any other
+    type of individuals is unpredictable.
+
+    :param ind1: The first individual participating in the crossover.
+    :param ind2: The second individual participating in the crossover.
+    :returns: A tuple of two individuals.
+
+    Moreover, this crossover generates holes in the input
+    individuals. A hole is created when an attribute of an individual is
+    between the two crossover points of the other individual. Then it rotates
+    the element so that all holes are between the crossover points and fills
+    them with the removed elements in order. For more details see
+    [Goldberg1989]_.
+
+    This function uses the :func:`~random.sample` function from the python base
+    :mod:`random` module.
+
+    .. [Goldberg1989] Goldberg. Genetic algorithms in search,
+       optimization and machine learning. Addison Wesley, 1989
+    """
+    size = min(len(ind1), len(ind2))
+    a, b = random.sample(range(size), 2)
+    if a > b:
+        a, b = b, a
+
+    holes1, holes2 = [True] * size, [True] * size
+    for i in range(size):
+        if i < a or i > b:
+            holes1[ind2[i]] = False
+            holes2[ind1[i]] = False
+
+    # We must keep the original values somewhere before scrambling everything
+    temp1, temp2 = ind1, ind2
+    k1, k2 = b + 1, b + 1
+    for i in range(size):
+        if not holes1[temp1[(i + b + 1) % size]]:
+            ind1[k1 % size] = temp1[(i + b + 1) % size]
+            k1 += 1
+
+        if not holes2[temp2[(i + b + 1) % size]]:
+            ind2[k2 % size] = temp2[(i + b + 1) % size]
+            k2 += 1
+
+    # Swap the content between a and b (included)
+    for i in range(a, b + 1):
+        ind1[i], ind2[i] = ind2[i], ind1[i]
+
+    return ind1, ind2
+
 def fromRouteToNode(route):
     node =[]
     for i in range(len(route)):
@@ -220,14 +281,24 @@ def PMXMine(parent1, parent2):
     nodep1 = fromRouteToNode(parent1)
     nodep2 = fromRouteToNode(parent2)
     
-    nodec1, nodec2 = cxPartialyMatched(nodep1, nodep2)
+    nodec1, nodec2 = cxOrdered(nodep1, nodep2)
     
     child1 = fromNodeToRoute(nodec1, parent1)
     child2 = fromNodeToRoute(nodec2, parent1)
     
     return child1, child2
     #return child1
-
+    
+def oxMine(parent1,parent2):
+    nodep1 = fromRouteToNode(parent1)
+    nodep2 = fromRouteToNode(parent2)
+    
+    nodec1, nodec2 = cxPartialyMatched(nodep1, nodep2)
+    
+    child1 = fromNodeToRoute(nodec1, parent1)
+    child2 = fromNodeToRoute(nodec2, parent1)
+    
+    return child1, child2    
 def PMX(parent1,parent2):
     """
     return 2 routes
@@ -380,6 +451,10 @@ def singlePointcrossover(parent1, parent2):
             
     return new_route
 
+
+
+
+
 def notTaken(liste1, liste2):    
     """
     Find a City among liste2 which is not in liste1
@@ -423,7 +498,6 @@ def populationPMXCrossover(selectionType, sorted_pop, popSize, nBest, nRandom, m
         if(selectionType=="before"):
             (parent1,parent2) = rankSelection(sorted_pop[:-20])
         
-        
         if(crossoverRate>random.random()):    
             (child1,child2) = PMX(parent1, parent2)
         else:
@@ -462,6 +536,41 @@ def populationPMXCrossoverMine(selectionType, sorted_pop, popSize, nBest, nRando
         
         if(crossoverRate>random.random()):    
             (child1,child2) = PMXMine(parent1, parent2)
+        else:
+            (child1,child2) = (parent1, parent2)
+        if(random.random()<mutationRate):
+            child1 = mutation(child1)
+        if(random.random()<mutationRate):
+            child2 = mutation(child2)
+          
+        crossed_pop.append(list(child1))
+        crossed_pop.append(list(child2))
+    
+    if(popSize%2 == 1):
+        nRandom+=1
+    for i in range(nRandom):
+        crossed_pop.append(random.sample(cityList, len(cityList)))
+    
+    return crossed_pop
+
+
+def populationOXCrossoverMine(selectionType, sorted_pop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList):
+    
+    crossed_pop=[]
+    for i in range(nBest):
+        crossed_pop.append(sorted_pop[i]) #garde le meilleur élément
+
+    nOffspring = popSize - nBest - nRandom
+    
+    for i in range(0, nOffspring//2):
+        #sorted_pop[:-5]
+        if(selectionType=="rank"):
+            (parent1,parent2) = rankSelection(sorted_pop)
+        if(selectionType=="before"):
+            (parent1,parent2) = rankSelection(sorted_pop[:-20])
+        
+        if(crossoverRate>random.random()):    
+            (child1,child2) = oxMine(parent1, parent2)
         else:
             (child1,child2) = (parent1, parent2)
         if(random.random()<mutationRate):
@@ -579,39 +688,21 @@ def plotGraph(listOfBestDistance, pop):
     axes[2].title.set_text('Evolution of the distance of the best route')
     
     figure.tight_layout()
-"""
-problem = tsplib95.load('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/berlin52.tsp')
-cityList = createCityListFromTSPLIB(problem)
-"""
 
-def algo(crossoverType,selectionType,elitism, data):
+
+def algo(popSize, nBest, nRandom, mutationRate, crossoverRate, crossoverType, selectionType, filename, numberMaxOfIteration, nbrSameValue):
     
+    if(filename[-3:] == 'npy'):
+        cityList = createCityListFromFile(filename)
     
+    if(filename[-3:] == 'tsp'):
+        cityList = createCityListFromTSPLIB(filename)
     
-    """
-    ListOfCoordonne = data
-    cityList = createCityListBasedOnList(ListOfCoordonne)
-    
-    
-    
-    Create from file(Matthias)
-    """
-    cityList = createCityListFromFile(data)
-    
-    """
-    problem = data
-    cityList = createCityListFromTSPLIB(problem)
-    """
-    popSize = 200
-    nBest = elitism
-    nRandom = 1
-    mutationRate = 0.1
-    crossoverRate = 0.9
+
     
     mutationRateInit = mutationRate
     
-    numberMaxOfIteration = 5000
-    nbrSameValue = 6000
+
     
     pop = createPopulation(popSize, cityList)
     
@@ -626,51 +717,31 @@ def algo(crossoverType,selectionType,elitism, data):
         sortedPop = sortPopulation(pop)   
         listOfBestDistance.append(computeFitness(sortedPop[0]))
         
-        if(crossoverType == "SinglePoint"):
+        if(crossoverType == "SinglePoint"):#d'office rank selection dans mon code
             pop = populationSinglePoint(sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
         if(crossoverType == "PMX"):
             pop = populationPMXCrossover(selectionType, sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)   
-        if(crossoverType == "Breed"):
+        if(crossoverType == "Breed"):#d'office rank selection dans mon code
             pop = populationBreed(sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
         if(crossoverType == "NewPMX"):
             pop = populationPMXCrossoverMine(selectionType, sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
+        if(crossoverType == "Ordered"):
+            pop = populationOXCrossoverMine(selectionType, sortedPop, popSize, nBest, nRandom, mutationRate, crossoverRate, cityList)
         if (listOfBestDistance[i-1]<listOfBestDistance[i]):
             print("wtf")
         if(listOfBestDistance[i-1]-listOfBestDistance[i]<0.001):
             count+=1
             mutationRate = 0.2
-            
         else:
             count=0
             mutationRate = mutationRateInit
         i+=1
     
-    print(crossoverType, ":", listOfBestDistance[-1])
-    plotGraph(listOfBestDistance, pop)
-    return listOfBestDistance[-1]
+    #print(crossoverType, ":", listOfBestDistance[-1])
+    #plotGraph(listOfBestDistance, pop)
+    return (listOfBestDistance[-1],pop)
+
 """----------------------------------------------------------------------"""
-#ListOfCoordonne = [(13, 2), (1, 12), (12, 5), (19, 6), (2, 10), (15, 15), (5, 11), (17, 9),
-#             (10, 18), (17, 5), (13, 12), (1, 17), (2, 6), (7, 16), (19, 2), (3, 7),
-#             (10, 9), (5, 19), (1, 2), (9, 2)]
 
-
-problem = tsplib95.load('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/att48.tsp')
-"""
-for i in range(5):
-    algo("Breed","rank",5 , data1)
-#cProfile.run('algo("SinglePoint","rank",1 , data1)')
-
-"""
-
-data1 = np.load('TSP_n100_1.npy')
-finalDist = []
-computeTime = []
-for i in range(5):
-    start = time.time()
-    finalDist.append(algo("Breed","rank",10 , data1))
-    end = time.time()
-    computeTime.append(end-start)
-np.save('C:/Users/Arthur_Gengler/Documents/GitHub/AlgoGenTSP/Arthur/newordered100', [finalDist,computeTime])
-print(finalDist)
 
 
